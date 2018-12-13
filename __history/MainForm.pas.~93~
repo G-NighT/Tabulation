@@ -1,0 +1,254 @@
+unit MainForm;
+
+interface
+
+uses
+  Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
+  Dialogs, StdCtrls, Buttons, ExtCtrls, TeeProcs, TeEngine, Chart, Series,
+  ComCtrls, Vcl.Grids, VclTee.TeeGDIPlus;
+
+type
+  TForm1 = class(TForm)
+    ProgressBar1: TProgressBar;
+    StringGrid1: TStringGrid;
+    Button1: TButton;
+    GroupBox2: TGroupBox;
+    GroupBox3: TGroupBox;
+    Label1: TLabel;
+    Label5: TLabel;
+    Label6: TLabel;
+    Label7: TLabel;
+    Label8: TLabel;
+    Label9: TLabel;
+    Edit1: TEdit;
+    Edit2: TEdit;
+    Label2: TLabel;
+    Label3: TLabel;
+    Label10: TLabel;
+    Label11: TLabel;
+    Button2: TButton;
+    Panel1: TPanel;
+    Label12: TLabel;
+    Chart1: TChart;
+    Series2: TLineSeries;
+    Series1: TLineSeries;
+    Label13: TLabel;
+    Button3: TButton;
+    Label14: TLabel;
+    CheckBox1: TCheckBox;
+    Label4: TLabel;
+    CheckBox2: TCheckBox;
+    procedure Button1Click(Sender: TObject);
+    procedure Chart1Click(Sender: TObject);
+    procedure FormCreate(Sender: TObject);
+    procedure Button2Click(Sender: TObject);
+    procedure Button3Click(Sender: TObject);
+    procedure Edit1KeyPress(Sender: TObject; var Key: Char);
+    procedure Edit2KeyPress(Sender: TObject; var Key: Char);
+  private
+    procedure STEP;
+    { Private declarations }
+  public
+    Function F1(x:double):double;
+    Function F2(x:double):double;
+    { Public declarations }
+  end;
+
+var                                   //Вводятся переменные для хранения значений:
+  Form1: TForm1;                      //Формы
+  X0,X1,D,Y,X,T,Max :real;            //Начального значения, конечного значения, шага, значения Y, значения X, значение T и максимального элемента
+  i                 :integer;         //Счётчика
+  Picture           :string;          //Названия диаграммы
+  Cancel            :boolean;         //Остановки программы
+
+implementation
+
+{$R *.dfm}
+
+procedure TForm1.Button1Click(Sender: TObject);
+begin
+  if StrToFloat(Edit1.Text)>=StrToFloat(Edit2.Text) then                   //Проверяется правильность ввода начального и конечного значений
+    ShowMessage('Начальное значение не может быть больше конечного!')      //В случае, если начальное значение больше конечного, программа оповещает пользователя
+  else begin
+
+  Button2.Visible:=False;             //Скрыть интерфейсные элементы для высчитывания максимального и минимального значений
+  GroupBox2.Visible:=False;
+  GroupBox3.Visible:=False;
+  Label4.Visible:=False;
+
+  Cancel:=False;                      //Кнопка "Остановить" не нажата
+  ProgressBar1.Position:=0;
+
+  X0:=StrToFloat(Edit1.Text);         //Ввод начального значения
+  X1:=StrToFloat(Edit2.Text);         //Ввод конечного значения
+
+  STEP;       //Вызов процедуры, вычисляющей шаг
+
+  Chart1.Series[0].Clear;             //Очистка всех графиков
+  Chart1.Series[1].Clear;
+
+  StringGrid1.RowCount:=trunc((X1-X0)/D);    //Определение количества строк в таблице (trunc делает вещественное число целым)
+
+  for i := 1 to StringGrid1.RowCount-1 do    //Заполнение всех ячеек нулями
+    begin
+      StringGrid1.Cells[0,i]:=FloatToStr(0);
+      StringGrid1.Cells[1,i]:=FloatToStr(0);
+      StringGrid1.Cells[2,i]:=FloatToStr(0);
+    end;
+
+  T:=X0; //Начальное значение X. Позднее оно будет меняться на размер шага
+  i:=1;  //Начальное значение счётчика
+
+  while T<=X1 do     //Цикл, выполняющийся до момента, когда T (X0) будет больше конечного значения X
+    begin
+      if D>0 then          //Проверка неотрицательности шага функции
+        if Cancel=False then       //Проверка того, что кнопка "Остановить" не нажата
+          begin
+            Application.ProcessMessages;                  //Включение отображение выполненных действий
+            ProgressBar1.Position:=Round(T/(X1-X0)*100);  //Присвоение ProgressBar процента выполнения программы для наглядности (Round округляет вещественное число до целого)
+
+            X:=F1(T);     //Функция тангенса
+            Y:=F2(T);     //Сложная произвольная функция
+
+            StringGrid1.Cells[0,i]:=FloatToStrF(T,ffFixed,10,6);    //Занесение текущего значения T в текущую строку i
+            StringGrid1.Cells[1,i]:=FloatToStrF(Y,ffFixed,10,6);    //Занесение текущего значения Y в текущую строку i
+            StringGrid1.Cells[2,i]:=FloatToStrF(X,ffFixed,10,6);    //Занесение текущего значения X в текущую строку i
+
+            Chart1.Series[0].AddXY(T,Y);        //Добавления текущих точек T,Y на график
+            Chart1.Series[1].AddXY(T,X);        //Добавления текущих точек T,X на график
+
+            if CheckBox2.Checked then
+              D:=D-0.00001; //Уменьшение шага в каждой новой иттерации
+
+            T:=T+D;      //Добавление к текущему T шаг
+            Inc(i);      //Инкрементация i (увеличение i на 1)
+
+            Label13.Caption:='Количество корней при D>0 = '+IntToStr(Chart1.Series[0].Count-1);       //Вывод значений
+            Label14.Caption:='Значение шага (D) = '+floattostr(D);                                    //по каждой иттерации
+          end
+        else                 //В случае, если была нажата кнопка "Остановить", выполняется остановка программы и уведомление пользователя
+          begin
+            ProgressBar1.Position:=100;
+            Label4.Caption:='Выполнение остановлено!';
+            Label4.Visible:=True;
+            Break;
+          end
+      else                  //В случае, если шаг принимает отрицательное значение, выполняется остановка программы и уведомление пользователя
+        begin
+          ProgressBar1.Position:=100;
+          Label4.Caption:='Шаг принял отрицательное значение!';
+          Label4.Visible:=True;
+          Break;
+        end;
+    end;
+
+  Button2.Visible:=True; end;     //Отображение кнопки, по нажатию на которую будут определены минимальные и максимальные элементы
+end;
+
+procedure TForm1.Button2Click(Sender: TObject);
+begin
+  GroupBox2.Visible:=True;       //Отображние GroupBox2 и GroupBox3, на которых
+  GroupBox3.Visible:=True;       //расположение объекты Label для вывода значений на экран
+
+  //Поиск максимальных значений
+  Max:=StrToFloat(StringGrid1.Cells[0,1]);
+  for i := 1 to StringGrid1.RowCount-1 do
+   if StrToFloat(StringGrid1.Cells[0,i])>Max then
+     Max:=StrToFloat(StringGrid1.Cells[0,i]);
+  Label1.Caption:='Значение T = '+FloatToStr(Max);
+
+  Max:=StrToFloat(StringGrid1.Cells[1,1]);
+  for i := 1 to StringGrid1.RowCount-1 do
+   if StrToFloat(StringGrid1.Cells[1,i])>Max then
+     Max:=StrToFloat(StringGrid1.Cells[1,i]);
+  Label5.Caption:='Значение Y = '+FloatToStr(Max);
+
+  Max:=StrToFloat(StringGrid1.Cells[2,1]);
+  for i := 1 to StringGrid1.RowCount-1 do
+   if (StrToFloat(StringGrid1.Cells[2,i])>Max) then
+     Max:=StrToFloat(StringGrid1.Cells[2,i]);
+  Label6.Caption:='Значение X = '+FloatToStr(Max);
+
+  //Поиск минимальных значений
+  Max:=StrToFloat(StringGrid1.Cells[0,1]);
+  for i := 1 to StringGrid1.RowCount-1 do
+   if StrToFloat(StringGrid1.Cells[0,i])<Max then
+     Max:=StrToFloat(StringGrid1.Cells[0,i]);
+  Label7.Caption:='Значение T = '+FloatToStr(Max);
+
+  Max:=StrToFloat(StringGrid1.Cells[1,1]);
+  for i := 1 to StringGrid1.RowCount-1 do
+   if StrToFloat(StringGrid1.Cells[1,i])<Max then
+     Max:=StrToFloat(StringGrid1.Cells[1,i]);
+  Label8.Caption:='Значение Y = '+FloatToStr(Max);
+
+  Max:=StrToFloat(StringGrid1.Cells[2,1]);
+  for i := 1 to StringGrid1.RowCount-1 do
+   if StrToFloat(StringGrid1.Cells[2,i])<Max then
+     Max:=StrToFloat(StringGrid1.Cells[2,i]);
+  Label9.Caption:='Значение X = '+FloatToStr(Max);
+end;
+
+procedure TForm1.Button3Click(Sender: TObject);
+begin
+  Cancel:=True;                                  //Кнопка "Остановить" нажата
+  Label4.Visible:=True;
+end;
+
+procedure TForm1.Chart1Click(Sender: TObject);
+begin
+  Chart1.SaveToBitmapFile(Picture);              //По клику на диаграмму изображение сохраняется в файл по адресу, который находится в переменной Picture
+  Chart1.CopyToClipboardBitmap;                  //Изображение диаграммы помещается в буфер обмена
+end;
+
+//Блокировка ввода не числовых значений в поля Edit1 и Edit2
+//-------------------------------------------------------------
+procedure TForm1.Edit1KeyPress(Sender: TObject; var Key: Char);
+begin
+  if not (Key in ['0'..'9']) then
+    Key:=#0;
+end;
+
+procedure TForm1.Edit2KeyPress(Sender: TObject; var Key: Char);
+begin
+  if not (Key in ['0'..'9']) then
+    Key:=#0;
+end;
+//-------------------------------------------------------------
+//Эта часть представляет собой основное назначение программы!
+//Функции можно менять для получения иных графиков.
+//--------------------------------------------------------------------------------------
+function TForm1.F1(x: double): double;
+begin
+  F1:=Exp(-0.1*X)*(Sin(X)/Cos(X));
+end;
+
+function TForm1.F2(x: double): double;
+begin
+  F2:=(Sin(((2*X)*(2*X)*(2*X))+4)+(Cos(((3*X)*(3*X))-5*X)*(Cos(((3*X)*(3*X))-5*X))));
+end;
+//--------------------------------------------------------------------------------------
+
+procedure TForm1.FormCreate(Sender: TObject);
+begin
+  Picture:='Диаграмма.jpg';                      //При старте программы присваивается значение адреса для хранения изображения диаграммы
+  StringGrid1.Cells[0,0]:='Значения T';          //и присваиваются значения первой строки таблицы,
+  StringGrid1.Cells[1,0]:='Значения Y';          //которые образуют её шапку
+  StringGrid1.Cells[2,0]:='Значения X';
+  Cancel:=False;                                 //Кнопка "Остановить" не нажата
+end;
+
+procedure TForm1.STEP;                           //Определение шага
+var
+  Dx         : Double;     //Внутренний шаг
+begin
+  Dx:=0;
+  Randomize;                                     //Подключение библиотеки Randomize
+  if CheckBox1.Checked then                      //В случае, если поиск шага решено задавать случайно,
+    Dx:=(X1-X0)/(Random(500)+501)                //выполняется данная функция.
+  else                                           //Иначе
+    Dx:=0.25*abs(F2(StrToFloat(Edit2.Text)));    //выполняется данная функция.
+  D:=Dx;
+end;
+
+end.
